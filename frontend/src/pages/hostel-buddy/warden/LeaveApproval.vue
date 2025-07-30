@@ -4,6 +4,7 @@
     <h2 class="approval-title">Leave Approval Requests</h2>
     <div class="leave-approval-content">
       <div class="requests-section">
+        <div v-if="leaveRequests.length > 0">
         <div 
           v-for="(request, index) in leaveRequests" 
           :key="request.id"
@@ -11,18 +12,19 @@
           :class="{
             'approved': request.status === 'approved',
             'rejected': request.status === 'rejected'
-          }"
-        >
+          }">
           <div class="request-info">
-            <h3>{{ request.studentName }}</h3>
-            <p><strong>Room No:</strong> {{ request.roomNo }}</p>
-            <p><strong>Leave Type:</strong> {{ request.leaveType }}</p>
-            <p><strong>From:</strong> {{ request.startDate }} <strong>To:</strong> {{ request.endDate }}</p>
-            <p><strong>Reason:</strong> {{ request.reason }}</p>
+          <!-- <h3>{{ request.studentName }}</h3> -->
+          <p><strong>Name :</strong> {{ request.studentName }}</p>
+          <!-- <p><strong>Room No :</strong> {{ request.roomNumber }}</p> -->
+          <p><strong>From :</strong> {{ request.startDate }}  <strong> To:</strong> {{ request.endDate }}</p>
+          <p><strong>Reason :</strong> {{ request.reason }}</p>
+          <p><strong>Contact :</strong> {{ request.emergencyContact }}</p>
           </div>
+           
           <div class="request-actions">
             <template v-if="request.status === 'pending'">
-              <button class="approve-btn" @click="approveLeave(index)">Approve</button>
+              <button class="approve-btn" @click="approveLeave(index)">Approve</button></br>
               <button class="reject-btn" @click="rejectLeave(index)">Reject</button>
             </template>
             <div v-else class="status-display">
@@ -31,10 +33,13 @@
           </div>
         </div>
       </div>
-      
-      <div class="approval-image">
-        <img src="@/assets/images/approve&reject.jpg" alt="Approval Status Illustration">
+      <div v-else class="no-requests-message">No leave requests found.</div>
       </div>
+      
+      
+      <!-- <div class="approval-image">
+        <img src="@/assets/images/approve&reject.jpg" alt="Approval Status Illustration">
+      </div> -->
     </div>
   </div>
   <Footer/>
@@ -43,68 +48,73 @@
 <script>
 import Navbar_warden from '../../../components/Navbar_warden.vue';
 import Footer from '../../../components/Footer.vue';
+import axios from 'axios';
 
 export default {
   name: 'LeaveApproval',
-  components :{
-    Navbar_warden,Footer
+  components: {
+    Navbar_warden, Footer
   },
   data() {
     return {
-      leaveRequests: [
-        {
-          id: 1,
-          studentName: 'Rahul',
-          roomNo: 'B-205',
-          leaveType: 'Emergency',
-          startDate: '2023-06-15',
-          endDate: '2023-06-18',
-          reason: 'Family emergency',
-          status: 'pending'
-        },
-        {
-          id: 2,
-          studentName: 'Priya',
-          roomNo: 'A-104',
-          leaveType: 'Vacation',
-          startDate: '2023-06-20',
-          endDate: '2023-06-25',
-          reason: 'Going home for sister\'s wedding',
-          status: 'pending'
-        },
-        {
-          id: 3,
-          studentName: 'John',
-          roomNo: 'C-302',
-          leaveType: 'Medical',
-          startDate: '2023-06-12',
-          endDate: '2023-06-14',
-          reason: 'Hospital appointment',
-          status: 'pending'
-        },
-        {
-          id: 4,
-          studentName: 'Neha Gupta',
-          roomNo: 'D-107',
-          leaveType: 'Personal',
-          startDate: '2023-06-17',
-          endDate: '2023-06-17',
-          reason: 'Personal work in city',
-          status: 'pending'
-        }
-      ]
-    }
+      leaveRequests: []
+    };
   },
   methods: {
-    approveLeave(index) {
-      this.leaveRequests[index].status = 'approved';
+    async fetchPendingLeaves() {
+      try {
+        const response = await axios.get('http://localhost:5000/api/v1/leave/pending', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        // Format data for display
+        this.leaveRequests = response.data.map((leave) => ({
+      id: leave._id,
+      studentName: leave?.studentName || 'Unknown',
+      roomNumber: leave?.roomNumber || 'N/A',
+      startDate: leave?.startDate.slice(0, 10),
+      endDate: leave?.endDate.slice(0, 10),
+      reason: leave?.reason,
+      emergencyContact: leave?.emergencyContact,
+      status: leave?.status
+        }));
+      }  
+      catch (err) {
+         console.error('Failed to fetch leave requests:', err.response?.data || err.message);
+         alert('Error fetching leave requests');
+     }
     },
-    rejectLeave(index) {
-      this.leaveRequests[index].status = 'rejected';
+    async approveLeave(index) {
+      await this.updateLeaveStatus(index, 'approved');
+    },
+    async rejectLeave(index) {
+      await this.updateLeaveStatus(index, 'rejected');
+    },
+    async updateLeaveStatus(index, status) {
+      try {
+        const leaveId = this.leaveRequests[index].id;
+        await axios.put(`http://localhost:5000/api/v1/leave/${leaveId}/status`, {
+          status
+        }, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        this.leaveRequests[index].status = status;
+         this.fetchPendingLeaves();
+      } catch (err) {
+        console.error(`Failed to ${status} leave:`, err);
+        alert(`Error while ${status}ing leave`);
+      }
     }
+  },
+  mounted() {
+    this.fetchPendingLeaves();
   }
 }
 </script>
+
 
 <style scoped>
 .leave-approval-container {
@@ -112,6 +122,7 @@ export default {
   margin: 0 auto;
   padding: 20px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin-bottom: 140px;
 }
 
 .approval-title {
@@ -132,7 +143,7 @@ export default {
   display: flex;
   gap: 30px;
 }
-
+ 
 .requests-section {
   flex: 2;
 }
@@ -149,18 +160,32 @@ export default {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
-  }
-
-.leave-request {
+}
+ .leave-request {
   background-color: #fff;
   border-radius: 8px;
   padding: 15px;
   margin-bottom: 15px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  border-left: 5px solid transparent;
   display: flex;
   justify-content: space-between;
+  border-left: 5px solid transparent;
   transition: all 0.3s ease;
+  line-height: 20px;
+}
+
+ .request-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* Adjust this value for spacing between lines */
+}
+
+.request-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-left: 30px;
+  justify-content: center;
 }
 
 .leave-request.approved {
@@ -183,14 +208,8 @@ export default {
 .request-info p {
   margin: 5px 0;
   color: #555;
-}
-
-.request-actions {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 10px;
-  min-width: 120px;
+  white-space: nowrap;
+  font-size: 18px;
 }
 
 .approve-btn, .reject-btn {
@@ -209,6 +228,8 @@ export default {
   font-size: 17px;
   margin-right: 40px;
   border-radius: 10px;
+  max-width: fit-content;
+  margin: 0 10px;
 }
 
 .approve-btn:hover {
@@ -223,6 +244,8 @@ export default {
   font-size: 17px;
   margin-right: 40px;
   border-radius: 10px;
+  width:100px;
+  margin-left: 10px;
 }
 
 .reject-btn:hover {
@@ -261,6 +284,19 @@ export default {
   
   .approval-image img {
     max-width: 300px;
+    position: sticky;
+    top: 20px; /* Add this - adjust as needed */
+    align-self: flex-start; /* Add this */
+    height: 100vh;
   }
 }
+
+.no-requests-message {
+  text-align: center;
+  font-size: 20px;
+  color: #888;
+  margin-top: 50px;
+  margin-bottom: 40px;
+}
+
 </style>

@@ -84,6 +84,7 @@ export default {
         // ✅ Save token and full user profile
         localStorage.setItem('token', data.token);
         localStorage.setItem('userProfile', JSON.stringify(user));
+        localStorage.setItem('user', JSON.stringify(user));
 
         // ✅ Role-based routing
         if (user.role === 'student') {

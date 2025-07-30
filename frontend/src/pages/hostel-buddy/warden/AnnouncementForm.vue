@@ -72,7 +72,7 @@
 
     <!-- ✅ PAST ANNOUNCEMENTS -->
     <div class="past-section">
-      <h2>📢 Active Announcements</h2>
+      <h2> Active Announcements</h2>
       <div v-if="visibleAnnouncements.length === 0">No active announcements.</div>
       
       <div class="announcements-grid">
@@ -177,13 +177,13 @@ const postAnnouncement = async () => {
   try {
     if (editingId.value) {
       await axios.put(`http://localhost:5000/api/announcements/${editingId.value}`, newAnn)
-      alert('✅ Announcement updated successfully!')
+      alert('Announcement updated successfully!')
       editingId.value = null
     } else {
       await axios.post('http://localhost:5000/api/announcements', newAnn, {
         headers: { 'Content-Type': 'application/json' }
       })
-      alert('✅ Announcement posted successfully!')
+      alert(' Announcement posted successfully!')
     }
 
     await fetchAnnouncements()
