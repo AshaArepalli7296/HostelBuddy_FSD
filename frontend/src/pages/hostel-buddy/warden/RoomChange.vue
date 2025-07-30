@@ -1,295 +1,224 @@
-<template>
-  <Navbar_warden/>
-  <div class="room-change-container">
-    <div class="approval-section">
-      <div class="room-change-approval">
-        <h2 class="approval-title">Room Change Requests</h2>
-        <div class="approval-list">
-          <div 
-            v-for="(student, index) in students" 
-            :key="student.id"
-            class="approval-item"
-            :class="{
-              'approved': student.status === 'approved',
-              'rejected': student.status === 'rejected'
-            }"
-          >
-            <div class="student-info">
-              <h3>{{ student.name }}</h3>
-              <p>Current Room: {{ student.currentRoom }}</p>
-              <p>Requested Room: {{ student.requestedRoom }}</p>
-              <p>Reason: {{ student.reason }}</p>
-            </div>
-            <div class="approval-actions">
-              <template v-if="student.status === 'pending'">
-                <button class="approve-btn" @click="approveRequest(index)">
-                  Approve
-                </button>
-                <button class="reject-btn" @click="rejectRequest(index)">
-                  Reject
-                </button>
-              </template>
-              <div v-else class="status-text">
-                {{ student.status.charAt(0).toUpperCase() + student.status.slice(1) }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="images-section">
-      <div class="hostel-image">
-        <img src="@/assets/images/room 1.jpg" alt="Modern hostel accommodation">
-         </div>
-      <div class="hostel-image">
-        <img src="@/assets/images/room 2.jpg" alt="Hostel room with bunk beds">
-        </div>
-      <div class="hostel-image">
-        <img src="@/assets/images/room 3.jpg" alt="Clean hostel room">
-      </div>
-    </div>
+ <template>
+  <div>
+    <Navbar_warden />
+    <div class="approval-container">
+      <h2 class="approval-title">Room Change Requests</h2>
+      <div class="approval-cards">
+ <div v-if="pendingRequests.length > 0">
+  <div 
+    v-for="request in pendingRequests" 
+    :key="request._id" 
+    class="request-card">
+    <div class="request-content">
+  <div class="request-details">
+    <p><strong>Student:</strong> {{ request.student.name }}</p>
+    <p><strong>Preferred Block:</strong> {{ request.preferredBlock }}</p>
+    <p><strong>Preferred Room:</strong> {{ request.preferredRoomNumber }}</p>
+    <p><strong>Reason:</strong> {{ request.reason }}</p>
   </div>
-  <Footer/>
+  <div class="button-group">
+    <button @click="updateStatus(request._id, 'Approved')" class="approve-btn">Approve</button>
+    <button @click="updateStatus(request._id, 'Rejected')" class="reject-btn">Reject</button>
+  </div>
+  <p v-if="successMessageMap[request._id]" class="success-message">
+  {{ successMessageMap[request._id] }}
+</p>
+
+</div>
+
+  </div>
+</div>
+<div v-else>
+  <p class="no-requests-message">No pending requests to be found.</p>
+</div>
+
+</div>
+</div>
+</div>
+  <Footer />
 </template>
 
 <script>
-import Navbar_warden from '../../../components/Navbar_warden.vue';
-import Footer from '../../../components/Footer.vue';
+import Navbar_warden from '@/components/Navbar_Warden.vue';
+import axios from 'axios';
+import Footer from '@/components/Footer.vue';
 
-export default {
+ export default {
   name: 'RoomChangeApproval',
-   components:{
-    Navbar_warden,Footer
+  components: { 
+    Navbar_warden,
+    Footer 
   },
   data() {
     return {
-      students: [
-        {
-          id: 1,
-          name: 'John Doe',
-          currentRoom: 'A101',
-          requestedRoom: 'B205',
-          reason: 'Need to room with friends',
-          status: 'pending'
-        },
-        {
-          id: 2,
-          name: 'Jane Smith',
-          currentRoom: 'C304',
-          requestedRoom: 'D102',
-          reason: 'Medical reasons',
-          status: 'pending'
-        },
-        {
-          id: 3,
-          name: 'Michael Johnson',
-          currentRoom: 'B201',
-          requestedRoom: 'A105',
-          reason: 'Quieter room requested',
-          status: 'pending'
-        },
-        {
-          id: 4,
-          name: 'Emily Davis',
-          currentRoom: 'D103',
-          requestedRoom: 'C202',
-          reason: 'Change of roommate',
-          status: 'pending'
-        }
-      ]
+      requests: [],
+      successMessageMap: {} // holds messages by request ID
+    };
+  },
+  async mounted() {
+  await this.fetchRequests(); // use the reusable function
+  },
+ 
+   methods: {
+  async fetchRequests() {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await axios.get('http://localhost:5000/api/v1/room-change/all', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      this.requests = res.data.data;
+    } catch (err) {
+      console.error('Error fetching requests:', err);
     }
   },
-  methods: {
-    approveRequest(index) {
-      this.students[index].status = 'approved';
-    },
-    rejectRequest(index) {
-      this.students[index].status = 'rejected';
-    }
+ async updateStatus(requestId, status) {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.put(
+      `http://localhost:5000/api/v1/room-change/${requestId}/status`,
+      { status },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+  alert(`You are ${status} the request`);
+  this.fetchRequests();
+  } catch (error) {
+    console.error("Status update error:", error);
+    alert("Failed to update status");
   }
 }
+
+},
+
+computed: {
+  pendingRequests() {
+    return this.requests.filter(request => request.status === 'Pending');
+  }
+}
+
+};
 </script>
 
 <style scoped>
-.room-change-container {
-  display: flex;
-  gap: 30px;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-.approval-section {
-  flex: 2;
-}
-
-.images-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.room-change-approval {
-  font-family: 'Arial', sans-serif;
+.approval-container {
+  padding: 2rem;
+  font-family: 'Segoe UI', sans-serif;
 }
 
 .approval-title {
-  color: #1BBC9B;
-  padding-bottom: 10px;
-  border-bottom: 3px solid #1BBC9B;
-  margin-bottom: 20px;
-  font-size: 35px;
+  color: #00b894;
   text-align: center;
+  font-size: 35px;
+  margin-bottom: 2rem;
+  border-bottom: 3px solid #1BBC9B;
+  padding-bottom: 10px;
+  max-width: 800px;
+  margin-left: 300px;
+  margin-right: auto;
 }
 
-.approval-list {
+.approval-cards {
   display: flex;
-  flex-direction: column;
-  gap: 15px;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+  margin-left: 0%;
 }
 
-.approval-item {
+.request-card {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  width: 750px;
+  transition: 0.3s ease;
+  margin-left: 0px;
+  line-height: 35px;
+  margin-bottom: 10px;
+}
+
+.request-content {
   display: flex;
   justify-content: space-between;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  padding: 15px;
-  border-left: 5px solid transparent;
-  transition: all 0.3s ease;
+  align-items: flex-start; 
 }
 
-.approval-item.approved {
-  border-left: 5px solid #1BBC9B;
-}
-
-.approval-item.rejected {
-  border-left: 5px solid #e74c3c;
-}
-
-.student-info {
+.request-details {
   flex: 1;
+  line-height: 2;
 }
 
-.student-info h3 {
-  margin-top: 0;
-  color: #2c3e50;
-}
-
-.student-info p {
-  margin: 5px 0;
-  color: #555;
-}
-
-.approval-actions {
+ .button-group {
+  margin-top: 0;      /* Remove extra margin at the top */
+  padding-top: 0;     /* Remove extra padding if any */
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 10px;
-  padding-left: 15px;
-  min-width: 120px;
+  align-items: center;
 }
 
-.approve-btn, .reject-btn {
-  padding: 8px 15px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.request-card:hover {
+  transform: translateY(-5px);
+}
+
+.status {
   font-weight: bold;
-  transition: background-color 0.3s;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+ 
+.approve-btn,
+.reject-btn {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  width:120px;
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .approve-btn {
-   color: #1BBC9B;
-  border:2px solid #1BBC9B;
-  background-color: #fff;
-  font-size: 17px;
-  margin-right: 40px;
-  border-radius: 10px;
-}
-
-.approve-btn:hover {
-  background-color: #16a085;
-  color:white;
+  background-color: white;
+  color: #1BBC9B;
+  border: 2px solid #1BBC9B;
 }
 
 .reject-btn {
-   color: #fa2929;
-  border:2px solid #fa2929;
-  background-color: #fff;
-  font-size: 17px;
-  margin-right: 40px;
-  border-radius: 10px;
+  background-color: white;
+  color: #cf1635;
+  border: 2px solid red;
+}
+
+.approve-btn:hover {
+  background-color: #1BBC9B;
+  color:white;
+  border-style: none;
+
 }
 
 .reject-btn:hover {
   background-color: #c0392b;
   color:white;
+  border-style: none;
 }
 
-.status-text {
-  padding: 8px 15px;
-  border-radius: 4px;
+.no-requests-message {
+  text-align: center;
+  font-size: 25px;
+  color: #777;
+  margin-top: 4rem;
+  font-style: italic;
+  margin-bottom: 30px;
+}
+.success-message {
+  color: green;
   font-weight: bold;
-  text-align: center;
+  margin-top: 5px;
 }
 
-.approval-item.approved .status-text {
-  color: #1BBC9B;
-  background-color: rgba(27, 188, 155, 0.1);
-}
-
-.approval-item.rejected .status-text {
-  color: #e74c3c;
-  background-color: rgba(231, 76, 60, 0.1);
-}
-
-.hostel-image {
-  margin-bottom: 20px;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.hostel-image img {
-  width: 100%;
-  height: auto;
-  display: block;
-  transition: transform 0.3s ease;
-}
-
-.hostel-image img:hover {
-  transform: scale(1.03);
-}
-
-.image-caption {
-  text-align: center;
-  margin-top: 8px;
-  font-weight: 500;
-  color: #2c3e50;
-}
-
-@media (max-width: 900px) {
-  .room-change-container {
-    flex-direction: column;
-  }
-  
-  .images-section {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  
-  .hostel-image {
-    flex: 1 1 45%;
-    min-width: 200px;
-  }
-}
-
-@media (max-width: 600px) {
-  .hostel-image {
-    flex: 1 1 100%;
-  }
-}
 </style>

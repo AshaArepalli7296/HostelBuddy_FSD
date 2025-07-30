@@ -1,3 +1,4 @@
+  [media pointer="file-service://file-66i7RFMdjA4xwt5oJdbQYG"]
 <template>
   <Navbar_Student/>
   <div class="room-change-container">
@@ -9,9 +10,8 @@
         <div class="current-room">
           <h3>Your Current Room</h3>
       <div class="room-info">
-        <span><strong>Room:</strong> A-204</span>
-        <span><strong>Block/Floor:</strong> Block A / 2nd Floor</span>
-        <span><strong>Bed Type:</strong> Single Bed (3ft x 6ft)</span>
+        <span><strong>Room :</strong> {{ currentRoom.room }}</span>
+        <span><strong>Block :</strong> {{ currentRoom.block }}</span>
       </div>
     </div>
 
@@ -23,7 +23,7 @@
             <option value="A">Block A</option>
             <option value="B">Block B</option>
             <option value="C">Block C</option>
-  </select>
+        </select>
           </div>
 
           <div class="form-group">
@@ -31,10 +31,9 @@
             <input 
               type="text" 
               id="preferred-room" 
-              v-model="formData.preferredRoom" 
+              v-model="formData.preferredRoomNumber" 
               placeholder="e.g. B-305" 
-              required
-            >
+              required>
           </div>
 
           <div class="form-group">
@@ -48,12 +47,13 @@
             ></textarea>
           </div>
 
-          <button type="submit" class="submit-btn">
-            Submit Request
-          </button>
+         <div class="form-buttons">
+  <button type="submit" class="submit-btn">Submit Request</button>
+  <button type="button" class="submit-btn view-history-btn" @click="showHistoryModal = true">View History</button>
+</div>
         </form>
       </div>
-
+    <div v-if="latestRequest">
       <!-- Right Card - Status Process -->
       <div class="status-process-card">
         <h3>Request Status</h3>
@@ -86,12 +86,52 @@
           </div>
         </div>
       </div>
+
+    <!-- <div 
+  v-if="latestRequest && justSubmitted && latestRequest.preferredBlock && latestRequest.preferredRoomNumber && latestRequest.reason"
+  class="latest-request-box">
+  <h4>Latest Submitted Request</h4>
+  <p v-if="latestRequest.preferredBlock"><strong>Block:</strong> {{ latestRequest.preferredBlock }}</p>
+  <p v-if="latestRequest.preferredRoomNumber"><strong>Room:</strong> {{ latestRequest.preferredRoomNumber }}</p>
+  <p v-if="latestRequest.reason"><strong>Reason:</strong> {{ latestRequest.reason }}</p>
+  <p v-if="latestRequest.createdAt"><strong>Date:</strong> {{ formatDate(latestRequest.createdAt) }}</p>
+  <p v-if="latestRequest.status"><strong>Status:</strong> {{ latestRequest.status }}</p>
+</div> -->
+
+   </div>
+      
+  <div v-if="showHistoryModal" class="modal-overlay">
+  <div class="history-popup">
+    <span class="close-icon" @click="showHistoryModal = false">×</span>
+    <h3>Your Room Change History</h3>
+    <div v-if="requestHistory.length === 0">
+      <p>No history found.</p>
     </div>
+    <div v-else>
+      <div
+        v-for="(item, index) in requestHistory"
+        :key="item._id"
+        class="history-modal-content">
+        <div class="history-box" :class="getStatusClass(item.status)">
+        <p><strong>Preferred Block:</strong> {{ item.preferredBlock }}</p>
+        <p><strong>Preferred Room:</strong> {{ item.preferredRoomNumber }}</p>
+        <p><strong>Reason:</strong> {{ item.reason }}</p>
+        <p><strong>Date:</strong> {{ formatDate(item.createdAt) }}</p>
+        <p><strong>Status:</strong> {{ item.status }}</p>
+      </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div>
   </div>
   <Footer/>
 </template>
-
+ 
 <script>
+import axios from 'axios'; 
 import Navbar_Student from '../../../../components/Navbar_Student.vue';
 import Footer from '../../../../components/Footer.vue';
 
@@ -105,63 +145,147 @@ export default {
     return {
       formData: {
         preferredBlock: '',
-        preferredRoom: '',
+        preferredRoomNumber: '',
         reason: ''
       },
-      currentStep: 1, // 1 = Pending, 2 = Approved, 3 = Rejected
-      requests: [
-        {
-          date: new Date(),
-          preferredBlock: 'B',
-          preferredRoom: '305',
-          reason: 'Want to be closer to friends',
-          status: 'Pending',
-          comments: ''
-        }
-      ]
-    }
+      latestRequest: null,
+      currentStep: 0,// 0 = No request, 1 = Pending, 2 = Approved, 3 = Rejected
+
+      currentRoom: {
+      room: '',
+      block: '',
+      floor: '',
+      // bedType: ''
+    },
+    showHistoryModal: false,
+    requestHistory: [],
+    justSubmitted: false,
+    };
   },
   methods: {
-    submitRequest() {
-      const newRequest = {
-        date: new Date(),
-        preferredBlock: this.formData.preferredBlock,
-        preferredRoom: this.formData.preferredRoom,
-        reason: this.formData.reason,
-        status: 'Pending',
-        comments: ''
-      }
-      
-      this.requests.unshift(newRequest);
-      this.currentStep = 1; // Set to Pending status
-      
-      // Reset form
-      this.formData = {
-        preferredBlock: '',
-        preferredRoom: '',
-        reason: ''
-      }
-      
-      alert('Request submitted successfully!');
-      
-      // Simulate admin approval/rejection after 3 seconds (for demo)
-      setTimeout(() => {
-        const randomStatus = Math.random() > 0.5 ? 2 : 3; // 50% chance of Approved/Rejected
-        this.currentStep = randomStatus;
-        this.requests[0].status = randomStatus === 2 ? 'Approved' : 'Rejected';
-      }, 3000);
-    },
-    formatDate(date) {
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
+getStatusClass(status) {
+  switch (status?.toLowerCase()) {
+    case 'pending':
+      return 'border-pending';
+    case 'approved':
+      return 'border-approved';
+    case 'rejected':
+      return 'border-rejected';
+    default:
+      return '';
   }
+},
+
+async submitRequest() {
+       const token = localStorage.getItem('token');
+     const config = {
+       headers: {
+      Authorization: `Bearer ${token}`
+    }
+  };
+      try {
+        const { preferredBlock, preferredRoomNumber, reason } = this.formData;
+
+        await axios.post('/api/v1/room-change', {
+          preferredBlock,
+          preferredRoomNumber,
+          reason,
+        },config);
+
+        this.latestRequest = {
+          preferredBlock: this.block,
+          preferredRoomNumber: this.roomNumber,
+          reason: this.reason,
+         createdAt: new Date().toISOString(),
+         status: "Pending",
+        };
+        this.showLatest = true;
+
+       alert('Room change request submitted!');
+        this.formData = { preferredBlock: '', preferredRoomNumber: '', reason: '' };
+        this.fetchRequestHistory();
+         this.justSubmitted = true;
+      } catch (error) {
+        alert('Error submitting request');
+        console.error(error);
+      }
+    },
+    async fetchLatestRequest() {
+       const token = localStorage.getItem('token');
+       const config = {
+         headers: {
+      Authorization: `Bearer ${token}`
+    }
+  };
+    try {
+      const res = await axios.get('http://localhost:5000/api/v1/room-change/latest',config);
+      this.latestRequest = res.data;
+
+       const status = res.data?.status?.toLowerCase();
+if (!status) {
+  this.currentStep = 0;
+  return;
 }
+
+switch (status) {
+  case 'pending':
+    this.currentStep = 1;
+    break;
+  case 'approved':
+    this.currentStep = 2;
+    break;
+  case 'rejected':
+    this.currentStep = 3;
+    break;
+  default:
+    this.currentStep = 0;
+}
+} catch (err) {
+      console.error("Error fetching latest request:", err);
+      const status = res.data?.status?.toLowerCase();
+      this.currentStep = 0;
+    }
+    },
+
+   async fetchStudentRoomDetails() {
+    try {
+      const response = await axios.get('http://localhost:5000/api/v1/users/me');
+      const user = response.data;
+
+      this.currentRoom.room = user.roomNumber || 'N/A';
+      this.currentRoom.block = user.block || 'N/A';
+      this.currentRoom.floor = user.floor || 'N/A';
+      this.currentRoom.bedType = user.bedType || 'Single Bed (3ft x 6ft)';
+    } catch (error) {
+      console.error('Error fetching room details:', error);
+    }
+  },
+
+  async fetchRequestHistory() {
+  const token = localStorage.getItem('token');
+  const config = {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  };
+  try {
+    const res = await axios.get('http://localhost:5000/api/v1/room-change/history', config);
+    this.requestHistory = res.data;
+  } catch (error) {
+    console.error("Failed to fetch request history:", error);
+  }
+},
+formatDate(date) {
+  return new Date(date).toLocaleDateString();
+}
+
+},
+created() {
+    this.fetchLatestRequest();
+    this.fetchStudentRoomDetails(); // fetch current room details
+    this.fetchRequestHistory();
+  },
+};
 </script>
 
 <style scoped>
@@ -214,7 +338,9 @@ h3 {
   margin-bottom: 30px;
   text-align: center; /* Added center alignment */
 }
-
+.current-room h3{
+  font-size: 20px;
+}
 .room-info {
   display: flex;
   flex-direction: column;
@@ -385,4 +511,174 @@ textarea {
     max-width: 100%;
   }
 }
-</style>
+
+.modal-content-stacked {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+}
+ 
+.history-card {
+  /* border-left: 5px solid #1BBC9B; */
+  padding: 15px 20px;
+  margin-bottom: 15px;
+  border-radius: 10px;
+  background: #f4f4f4;
+}
+ 
+
+.status.pending {
+  color: #FFA500;
+  font-weight: bold;
+}
+
+.status.approved {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.status.rejected {
+  color: #dc3545;
+  font-weight: bold;
+}
+ 
+
+.history-btn-wrapper {
+  margin-top: 40px;
+  display: flex;
+  justify-content: center;
+}
+.history-btn-wrapper .submit-btn {
+  background-color: #1BBC9B;
+  width: 150px;
+}
+
+ 
+.close-icon {
+  position: absolute;
+  top: 18px;
+  right: 28px;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: bold;
+  color: #dc3545;
+  background-color: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  z-index: 1001;
+  transition: all 0.2s ease-in-out;
+  margin-top: 18px;
+}
+
+.close-icon:hover {
+  background-color: #dc3545;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+  .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.history-popup {
+  position: relative;
+  background-color: #fff;
+  padding: 25px 30px;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+.history-popup h3{
+  text-align: center;
+  font-size: 30px;
+  margin-right: 20px;
+  margin-top: 30px;
+}
+
+.history-popup p{
+   font-size: 17px;
+  margin-top: 60px;
+  font-style: italic;
+  color:#666;
+}
+
+.history-modal-content {
+  text-align: left;
+  line-height: 1.4;        
+}
+
+.history-modal-content p {
+  margin: 4px 0;          /* Tighter spacing between paragraphs */
+}
+.history-box {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* ✅ Box shadow added */
+  margin-bottom: 20px;
+}
+
+.form-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 10px;
+}
+
+.view-history-btn {
+  background-color: #1BBC9B;
+  width: 200px;
+}
+
+.recent-request-box {
+  margin-top: 30px;
+  background-color: #ffffff;
+  padding: 16px;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  font-size: 15px;
+  transition: box-shadow 0.3s ease;
+  width:350px;
+}
+.recent-request-box h4{
+  color:#1BBC9B;
+  text-align: center;
+  font-size: 20px; 
+  margin-bottom: 10px; 
+}
+
+.border-pending {
+  border-left: 6px solid #f4c430; /* Yellow */
+}
+
+.border-approved {
+  border-left: 6px solid #28a745; /* Green */
+}
+
+.border-rejected {
+  border-left: 6px solid #dc3545; /* Red */
+}
+
+</style> 
