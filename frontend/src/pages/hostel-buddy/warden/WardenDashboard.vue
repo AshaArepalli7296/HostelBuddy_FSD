@@ -3,7 +3,7 @@
     <!-- Fixed Header -->
     <header class="dashboard-header">
       <div class="header-left">
-        <h1>Warden Dashboard</h1>
+        <h1>Welcome, {{ wardenName }}</h1>
       </div>
       <div class="header-right">
         <div class="profile-dropdown">
@@ -151,6 +151,8 @@ export default {
     return {
       showDropdown: false,
       showMobileMenu: false,
+      wardenName: '',
+      showProfileDropdown: false,
       metricList: [
         {
           title: 'Total Students',
@@ -288,6 +290,17 @@ export default {
       ]
     }
   },
+  mounted() {
+    const userData = localStorage.getItem("userProfile");
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        this.wardenName = user.fullName || user.name || "";
+      } catch (error) {
+        console.error("Invalid user data in localStorage");
+      }
+    }
+  },
   methods: {
     toggleProfileDropdown() {
       this.showDropdown = !this.showDropdown
@@ -304,7 +317,7 @@ export default {
     logout() {
       console.log("Logging out...")
       this.showDropdown = false
-      this.$router.push('/login')
+      this.$router.push('/hostel-buddy')
     },
     navigateTo(route) {
       this.$router.push(route)

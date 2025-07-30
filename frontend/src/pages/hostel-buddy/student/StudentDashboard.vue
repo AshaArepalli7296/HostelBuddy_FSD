@@ -3,7 +3,7 @@
     <!-- Header -->
     <header class="dashboard-header">
       <div class="header-left">
-        <h1>Student Dashboard</h1>
+       <h1>Welcome, {{ studentName }}</h1>
       </div>
       <div class="header-right">
         <div class="profile-dropdown">
@@ -246,6 +246,8 @@ export default {
     return {
       showDropdown: false,
       showMobileMenu: false,
+      studentName: '',
+      showProfileDropdown: false,
       announcements: [],
       loadingNotices: true,
     };
@@ -257,8 +259,18 @@ export default {
     }
   },
   mounted() {
+    const userData = localStorage.getItem('userProfile');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        this.studentName = user.fullName || user.name || '';
+      } catch (e) {
+        console.error("Failed to parse userProfile:", e);
+      }
+    }
     this.fetchAnnouncements();
   },
+
   methods: {
     toggleProfileDropdown() {
       this.showDropdown = !this.showDropdown;
@@ -270,7 +282,7 @@ export default {
     },
     logout() {
       this.showDropdown = false;
-      this.$router.push("/login");
+      this.$router.push("/hostel-buddy");
     },
     navigateTo(route) {
       this.$router.push(route);
